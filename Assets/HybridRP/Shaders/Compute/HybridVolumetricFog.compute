@@ -1,0 +1,93 @@
+// Screen-space raymarched participating media (Stage 2, S2-5). Our own implementation; the
+// reference (Arknights: Endfield) uses froxel fog, which we approximate at half resolution with
+// a depth-aware composite: the half-res buffer stores in-scattering and transmittance, the
+// full-res composite rejects neighbours across depth discontinuities. Height-attenuated
+// density, Henyey-Greenstein phase and per-step main-light shadowing; no volumetric shadow
+// texture and no temporal reprojection.
+#pragma kernel Raymarch
+// Without one of these the shadow macros compile to 1.0 and the fog is never shadowed.
+#pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE
+
+#pragma only_renderers d3d11 playstation xboxone xboxseries vulkan metal switch
+
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
+
+RWTexture2D<float4> _FogScatter;       // rgb: in-scatter, a: transmittance
+RWTexture2D<float> _FogDepth;          // linear eye depth of the half-res sample
+
+float4 _FogParams0;                    // x density, y height falloff (m), z base height (y), w max distance
+float4 _FogParams1;                    // x anisotropy, y light scattering, z ambient scattering, w step count
+float4 _FogColor;                      // rgb fog albedo
+float4 _FogAmbientColor;               // rgb ambient in-scatter (sky)
+float4 _FogLightDirection;             // xyz direction toward the main light
+
+static const float FOG_EPSILON = 1e-5;
+
+float HenyeyGreenstein(float cosTheta, float g)
+{
+    float g2 = g * g;
+    float denom = 1.0 + g2 - 2.0 * g * cosTheta;
+    return (1.0 - g2) / (4.0 * PI * pow(max(denom, FOG_EPSILON), 1.5));
+}
+
+[numthreads(8, 8, 1)]
+void Raymarch(uint2 dispatchThreadId : SV_DispatchThreadID)
+{
+    uint2 fullResPixel = dispatchThreadId * 2;
+    float depth = LoadSceneDepth(fullResPixel);
+    float linearDepth = LinearEyeDepth(depth, _ZBufferParams);
+
+    float2 uv = (fullResPixel + 0.5) * _ScreenSize.zw;
+    float3 positionWS = ComputeWorldSpacePosition(uv, depth, unity_MatrixInvVP);
+    float3 cameraPos = GetCameraPositionWS();
+    float3 ray = positionWS - cameraPos;
+    float distance = length(ray);
+    float3 dir = distance > FOG_EPSILON ? ray / distance : float3(0, 0, 1);
+
+    // Sky and distances beyond the fog range are fully transparent (the composite leaves the
+    // sky untouched; the far-fog look comes from the height fog in front of geometry).
+    if (depth == UNITY_RAW_FAR_CLIP_VALUE)
+    {
+        _FogScatter[dispatchThreadId] = float4(0, 0, 0, 1);
+        _FogDepth[dispatchThreadId] = 1e9;
+        return;
+    }
+
+    int steps = max(1, (int)_FogParams1.w);
+    float marchDistance = min(distance, _FogParams0.w);
+    float stepLength = marchDistance / steps;
+
+    float3 lightDir = normalize(_FogLightDirection.xyz);
+    float cosTheta = dot(dir, lightDir);
+    float phase = HenyeyGreenstein(cosTheta, _FogParams1.x);
+
+    float transmittance = 1.0;
+    float3 scatter = 0.0;
+    float t = stepLength * 0.5;
+
+    [loop]
+    for (int i = 0; i < steps; i++)
+    {
+        float3 samplePos = cameraPos + dir * t;
+        float height = samplePos.y - _FogParams0.z;
+        float density = _FogParams0.x * exp(-max(0.0, height) / max(FOG_EPSILON, _FogParams0.y));
+
+        float shadow = MainLightRealtimeShadow(TransformWorldToShadowCoord(samplePos));
+        float3 sun = _MainLightColor.rgb * (phase * shadow * _FogParams1.y);
+        float3 ambient = _FogAmbientColor.rgb * _FogParams1.z;
+        float3 inScatter = (sun + ambient) * _FogColor.rgb;
+
+        // Energy-conserving step: the in-scattered radiance over the step is
+        // L * (1 - exp(-sigma*dt)), which tends to L*sigma*dt for thin media.
+        float stepTransmittance = exp(-density * stepLength);
+        scatter += transmittance * inScatter * (1.0 - stepTransmittance);
+        transmittance *= stepTransmittance;
+        t += stepLength;
+    }
+
+    _FogScatter[dispatchThreadId] = float4(scatter, transmittance);
+    _FogDepth[dispatchThreadId] = linearDepth;
+}

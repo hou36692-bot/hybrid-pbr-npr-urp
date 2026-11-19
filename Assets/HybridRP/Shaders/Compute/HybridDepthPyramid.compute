@@ -1,0 +1,54 @@
+// Packed min-depth pyramid for screen-space effects (GTAO, later SSR). Ported for Unity
+// 6000.0 / URP 17.0.4 from IllusionRP's DepthPyramid.compute (Unity Companion License,
+// see NOTICE.md). The original merges four mip levels per dispatch with subgroup
+// operations and a constant buffer; this version writes one mip per dispatch with explicit
+// min() and two vector uniforms, which is simple enough to audit and still cheap (the whole
+// chain visits 4/3 of the depth pixels).
+#pragma kernel CopyDepth
+#pragma kernel Downsample
+
+#pragma only_renderers d3d11 playstation xboxone xboxseries vulkan metal switch
+
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
+
+RWTexture2D<float> _DepthMipChain;
+
+// xy: source mip offset in the atlas, zw: source size - 1
+float4 _DepthPyramidSrc;
+// xy: destination mip offset in the atlas, zw: destination size
+float4 _DepthPyramidDst;
+
+[numthreads(8, 8, 1)]
+void CopyDepth(uint2 dispatchThreadId : SV_DispatchThreadID)
+{
+    _DepthMipChain[dispatchThreadId] = LOAD_TEXTURE2D_X(_CameraDepthTexture, dispatchThreadId).r;
+}
+
+// Reversed Z: the closest surface keeps the largest raw depth value.
+#if UNITY_REVERSED_Z
+#define MIN_DEPTH(A, B) max((A), (B))
+#else
+#define MIN_DEPTH(A, B) min((A), (B))
+#endif
+
+[numthreads(8, 8, 1)]
+void Downsample(uint2 dispatchThreadId : SV_DispatchThreadID)
+{
+    int2 dstSize = (int2)_DepthPyramidDst.zw;
+    if (any((int2)dispatchThreadId >= dstSize))
+        return;
+
+    int2 srcBase = (int2)_DepthPyramidSrc.xy;
+    int2 srcLimit = (int2)_DepthPyramidSrc.zw;
+    int2 srcLocal = (int2)dispatchThreadId * 2;
+
+    float p00 = _DepthMipChain[srcBase + min(srcLocal + int2(0, 0), srcLimit)];
+    float p10 = _DepthMipChain[srcBase + min(srcLocal + int2(1, 0), srcLimit)];
+    float p01 = _DepthMipChain[srcBase + min(srcLocal + int2(0, 1), srcLimit)];
+    float p11 = _DepthMipChain[srcBase + min(srcLocal + int2(1, 1), srcLimit)];
+
+    int2 dst = (int2)_DepthPyramidDst.xy + (int2)dispatchThreadId;
+    _DepthMipChain[dst] = MIN_DEPTH(MIN_DEPTH(p00, p10), MIN_DEPTH(p01, p11));
+}

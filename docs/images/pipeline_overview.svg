@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1270" viewBox="0 0 1600 1270" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif">
+  <defs>
+    <style>
+      .bg { fill: #15171c; }
+      .t { fill: #f1f1f1; font-size: 20px; font-weight: 700; }
+      .s { fill: #c8ccd4; font-size: 15px; }
+      .lab { fill: #f1f1f1; font-size: 21px; font-weight: 700; }
+      .labs { fill: #8e95a3; font-size: 14px; }
+      .builtin { fill: #2f343f; stroke: #7d8597; stroke-width: 2; }
+      .ported { fill: #4a3a1c; stroke: #d9a441; stroke-width: 2; }
+      .own { fill: #103f3c; stroke: #2dd4bf; stroke-width: 2; }
+      .off { stroke-dasharray: 8 6; }
+      .label { fill: #1d2027; stroke: #3a3f4b; stroke-width: 1.5; }
+      .shared { fill: #1e2a3a; stroke: #6ea8fe; stroke-width: 2; }
+      .sharedt { fill: #cfe2ff; font-size: 16px; font-weight: 700; }
+    </style>
+  </defs>
+  <rect class="bg" width="1600" height="1270"/>
+
+  <text x="30" y="52" fill="#ffffff" font-size="30" font-weight="700">HybridRP：一帧的渲染顺序（Wuling 场景，Unity 6000.0 / URP 17 Forward+）</text>
+  <rect x="30" y="74" width="22" height="22" class="builtin"/><text x="62" y="92" class="s">URP 内置，配置与调优</text>
+  <rect x="270" y="74" width="22" height="22" class="ported"/><text x="302" y="92" class="s">移植（IllusionRP / HDRP，见 NOTICE）</text>
+  <rect x="660" y="74" width="22" height="22" class="own"/><text x="692" y="92" class="s">自研</text>
+  <rect x="770" y="74" width="22" height="22" class="own off"/><text x="802" y="92" class="s">自研，默认关闭</text>
+
+  <!-- Row 0: shadows -->
+  <rect x="30" y="120" width="230" height="96" rx="8" class="label"/>
+  <text x="48" y="160" class="lab">阴影</text><text x="48" y="186" class="labs">Shadow maps</text>
+  <rect x="280" y="120" width="636" height="96" rx="8" class="builtin"/>
+  <text x="300" y="158" class="t">主光级联阴影 CSM</text><text x="300" y="188" class="s">级联数量、距离、分辨率、软阴影按场景调优</text>
+  <rect x="932" y="120" width="638" height="96" rx="8" class="builtin"/>
+  <text x="952" y="158" class="t">附加光阴影</text><text x="952" y="188" class="s">灯笼的点光与聚光（Forward+）</text>
+
+  <!-- Row 1: prepass -->
+  <rect x="30" y="232" width="230" height="96" rx="8" class="label"/>
+  <text x="48" y="272" class="lab">预通道</text><text x="48" y="298" class="labs">Depth / Normals</text>
+  <rect x="280" y="232" width="636" height="96" rx="8" class="builtin"/>
+  <text x="300" y="270" class="t">Depth + DepthNormals 预通道</text><text x="300" y="300" class="s">GTAO、接触阴影和描边的输入</text>
+  <rect x="932" y="232" width="638" height="96" rx="8" class="own"/>
+  <text x="952" y="270" class="t">角色 DepthOnly / DepthNormals pass</text><text x="952" y="300" class="s">角色 shader 自带，属性全部在 UnityPerMaterial，兼容 SRP Batcher</text>
+
+  <!-- Row 2: screen-space lighting -->
+  <rect x="30" y="344" width="230" height="96" rx="8" class="label"/>
+  <text x="48" y="384" class="lab">屏幕空间光照</text><text x="48" y="410" class="labs">AfterRenderingPrePasses</text>
+  <rect x="280" y="344" width="420" height="96" rx="8" class="ported"/>
+  <text x="300" y="382" class="t">GTAO（半分辨率）</text><text x="300" y="412" class="s">深度金字塔 → 追踪 → 双边上采样，取代 URP SSAO</text>
+  <rect x="716" y="344" width="420" height="96" rx="8" class="ported"/>
+  <text x="736" y="382" class="t">接触阴影</text><text x="736" y="412" class="s">屏幕空间光线步进（compute）</text>
+  <rect x="1152" y="344" width="418" height="96" rx="8" class="own"/>
+  <text x="1172" y="382" class="t">屏幕空间阴影 resolve</text><text x="1172" y="412" class="s">合并 CSM 与接触阴影</text>
+
+  <!-- Row 3: opaque -->
+  <rect x="30" y="456" width="230" height="186" rx="8" class="label"/>
+  <text x="48" y="540" class="lab">不透明</text><text x="48" y="566" class="labs">Opaques</text>
+  <rect x="280" y="456" width="636" height="120" rx="8" class="builtin"/>
+  <text x="300" y="494" class="t">环境：URP Lit / Shader Graph Lit</text>
+  <text x="300" y="524" class="s">标准金属度 / 粗糙度 PBR，不重写</text>
+  <text x="300" y="550" class="s">供应商材质调向哑光（石材、木材的金属度压低）</text>
+  <rect x="932" y="456" width="638" height="120" rx="8" class="own"/>
+  <text x="952" y="494" class="t">角色：Hybrid / NPR shader ×5（身体、脸、头发、眼、叠加层）</text>
+  <text x="952" y="524" class="s">Ramp 漫反射、阴影色、GGX 高光、SDF 脸部阴影、</text>
+  <text x="952" y="550" class="s">Kajiya-Kay 头发高光、Rim；Hybrid / PBR 模式可一键切换</text>
+  <rect x="280" y="590" width="1290" height="52" rx="8" class="shared"/>
+  <text x="300" y="623" class="sharedt">两边读同一套光照输入：主光 + CSM · APV 探针 GI（天空遮蔽）· 反射探针 · GTAO · 接触阴影</text>
+
+  <!-- Row 4: sky / transparent -->
+  <rect x="30" y="658" width="230" height="96" rx="8" class="label"/>
+  <text x="48" y="698" class="lab">天空 · 透明</text><text x="48" y="724" class="labs">Skybox / Transparents</text>
+  <rect x="280" y="658" width="636" height="96" rx="8" class="builtin"/>
+  <text x="300" y="696" class="t">程序化天空 · 透明物体</text><text x="300" y="726" class="s">角色叠加层（眼影、发影、泪）、火焰面片</text>
+  <rect x="932" y="658" width="638" height="96" rx="8" class="own"/>
+  <text x="952" y="696" class="t">恢复级联阴影关键字</text><text x="952" y="726" class="s">屏幕空间阴影只给不透明物体，透明物体回到 CSM 采样</text>
+
+  <!-- Row 5: before post -->
+  <rect x="30" y="770" width="230" height="96" rx="8" class="label"/>
+  <text x="48" y="810" class="lab">后处理前</text><text x="48" y="836" class="labs" font-size="12">BeforeRenderingPostProcessing</text>
+  <rect x="280" y="770" width="420" height="96" rx="8" class="own"/>
+  <text x="300" y="808" class="t">屏幕空间描边</text><text x="300" y="838" class="s">深度/法线边缘 · 角色层遮罩 · 取表面色</text>
+  <rect x="716" y="770" width="420" height="96" rx="8" class="own"/>
+  <text x="736" y="808" class="t">体积雾</text><text x="736" y="838" class="s">半分辨率高度雾步进 + 主光阴影 + 深度感知合成</text>
+  <rect x="1152" y="770" width="418" height="96" rx="8" class="own off"/>
+  <text x="1172" y="808" class="t">SSR</text><text x="1172" y="838" class="s">遮罩限定的屏幕空间反射，校准板验证用</text>
+
+  <!-- Row 6: post -->
+  <rect x="30" y="882" width="230" height="96" rx="8" class="label"/>
+  <text x="48" y="922" class="lab">后处理</text><text x="48" y="948" class="labs">Post-processing (HDR)</text>
+  <rect x="280" y="882" width="420" height="96" rx="8" class="builtin"/>
+  <text x="300" y="920" class="t">Bokeh 景深</text><text x="300" y="950" class="s">rig 按镜头对焦到眼睛</text>
+  <rect x="716" y="882" width="420" height="96" rx="8" class="builtin"/>
+  <text x="736" y="920" class="t">Neutral 色调映射 + 调色 LUT</text><text x="736" y="950" class="s">曝光、白平衡、暗部/高光分色；不做 Bloom</text>
+  <rect x="1152" y="882" width="418" height="96" rx="8" class="builtin"/>
+  <text x="1172" y="920" class="t">SMAA</text><text x="1172" y="950" class="s">成图另做 2 倍超采样</text>
+
+  <!-- Bridge terms -->
+  <rect x="30" y="1004" width="1540" height="236" rx="10" fill="#0d2624" stroke="#2dd4bf" stroke-width="2"/>
+  <text x="54" y="1044" fill="#5eead4" font-size="22" font-weight="700">角色侧"桥接项"：把 NPR 角色接进 PBR 场景的光（自研，均由全局权重控制，0 = 关闭，可逐项做 A/B）</text>
+  <text x="54" y="1086" class="t">探针 GI 胶囊化</text>
+  <text x="54" y="1112" class="s">APV 按身体尺度采样：保留天空 / 地面反弹的方向与颜色，去掉法线贴图级斑驳</text>
+  <text x="820" y="1086" class="t">自阴影平滑</text>
+  <text x="820" y="1112" class="s">去掉发丝级自阴影，保留屋檐、树冠等环境尺度投影</text>
+  <text x="54" y="1154" class="t">阴影提亮 + 光驱动高光</text>
+  <text x="54" y="1180" class="s">暗部按材质阴影色抬起；反射探针和 rim 随主光方向、颜色和阴影变化</text>
+  <text x="820" y="1154" class="t">屏幕空间深度 rim + 角色曝光 rig</text>
+  <text x="820" y="1180" class="s">等宽轮廓光；角色总增益固定，场景曝光单独决定背景亮度</text>
+  <text x="54" y="1222" class="s">检验方法：主光方向扫描、debug view（NdotL / 阴影 / Ramp / SDF / GI / AO / 描边遮罩）、Hybrid 与 PBR 同材质对照</text>
+</svg>

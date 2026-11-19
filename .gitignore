@@ -1,0 +1,67 @@
+# Unity (if this folder is opened or dropped into a project)
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+*.csproj
+*.sln
+*.slnx
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+.vs/
+.vscode/
+.idea/
+
+# Third-party content never belongs in this repository (licence terms, see NOTICE.md)
+/Assets/Characters/
+/Assets/BefourStudios/
+/Assets/Suntail Village/
+/Assets/DE Environment/
+*.unity
+*.unitypackage
+*.pmx
+*.fbx
+*.FBX
+*.blend
+*.bytes
+LightingData.asset
+
+# Local outputs of the capture and image tools
+/Captures/
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Private project content that must never be copied over this folder (the private project keeps its
+# internal notes in a top-level folder named "Docs" with a capital D; it is not listed here because
+# Windows matches ignore rules case-insensitively and would hide docs/images)
+/Tools~/
+/.claude/
+CLAUDE.md
+HANDOFF.md
+_scratch/
+/Assets/Characters.meta
+/Assets/BefourStudios.meta
+/Assets/Suntail Village.meta
+/Assets/DE Environment.meta
+/Assets/**/*.png
+/Assets/**/*.tga
+/Assets/**/*.psd
+/Assets/**/*.exr
+/Assets/**/*.mat

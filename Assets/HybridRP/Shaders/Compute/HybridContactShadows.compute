@@ -1,0 +1,148 @@
+// Screen-space contact shadows for the main directional light. Ported for Unity 6000.0 /
+// URP 17.0.4 from IllusionRP's ContactShadows.compute (Unity Companion License, see
+// NOTICE.md), itself derived from HDRP. Differences: world positions come from
+// URP's depth reconstruction (no camera-relative / HDRP PositionInputs), world scale is 1,
+// the dither uses a fixed frame index so captures are deterministic, and no light-list or
+// deferred path is used.
+#pragma kernel ContactShadowMap
+
+#pragma only_renderers d3d11 playstation xboxone xboxseries vulkan metal switch
+
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
+
+RWTexture2D<float> _ContactShadowTextureUAV;
+
+float4 _ContactShadowParamsParameters;   // x length (m), y distance scale, z fade end, w 1 / fade range
+float4 _ContactShadowParamsParameters2;  // y min distance, z fade-in end (m), w ray bias
+float4 _ContactShadowParamsParameters3;  // x sample count, y thickness, z frame
+float4 _ContactShadowLightDirection;     // xyz: direction toward the main light
+// GPU projection matrix: SpaceTransforms.hlsl cannot be included in a compute shader (object
+// matrices are not defined there), so the resolve matrix is bound from C#.
+float4x4 _ContactShadowViewToClip;
+
+#define _ContactShadowLength                _ContactShadowParamsParameters.x
+#define _ContactShadowDistanceScaleFactor   _ContactShadowParamsParameters.y
+#define _ContactShadowFadeEnd               _ContactShadowParamsParameters.z
+#define _ContactShadowFadeOneOverRange      _ContactShadowParamsParameters.w
+#define _ContactShadowMinDistance           _ContactShadowParamsParameters2.y
+#define _ContactShadowFadeInEnd             _ContactShadowParamsParameters2.z
+#define _ContactShadowBias                  _ContactShadowParamsParameters2.w
+#define _SampleCount                        (int)_ContactShadowParamsParameters3.x
+#define _ContactShadowThickness             _ContactShadowParamsParameters3.y
+#define _FrameCountMod8                     (int)_ContactShadowParamsParameters3.z
+
+float GetDepthCompareThreshold(float step, float rayStartZ, float rayOrthoZ)
+{
+    return abs(rayOrthoZ - rayStartZ) * _ContactShadowThickness * max(0.07, step);
+}
+
+bool CompareDepth(float depthDiff, float compareThreshold)
+{
+    return abs(compareThreshold - depthDiff) < compareThreshold;
+}
+
+// Raymarch in UV + raw reversed-Z clip depth. Reversed Z: a sampled surface closer than the
+// ray has a larger raw depth, so depthDiff > 0 means the sample occludes the ray point.
+bool ScreenSpaceShadowRayCast(float3 positionWS, float3 rayDirWS, float rayLength, uint2 positionSS, out float fade)
+{
+    float dither = InterleavedGradientNoise(positionSS, _FrameCountMod8) - 0.5;
+
+    float3 rayStartWS = positionWS - (positionWS - GetCameraPositionWS()) * _ContactShadowBias;
+    float3 rayEndWS = rayStartWS + rayDirWS * rayLength;
+
+    float4 rayStartCS = TransformWorldToHClip(rayStartWS);
+    float4 rayEndCS = TransformWorldToHClip(rayEndWS);
+
+    // A view-parallel ray gives a slope-independent depth threshold.
+    float4 rayOrthoViewSpace = rayStartCS + float4(_ContactShadowViewToClip[0][2], _ContactShadowViewToClip[1][2],
+                                                   _ContactShadowViewToClip[2][2], _ContactShadowViewToClip[3][2]) * rayLength;
+    rayOrthoViewSpace /= rayOrthoViewSpace.w;
+
+    rayStartCS.xyz /= rayStartCS.w;
+    rayEndCS.xyz /= rayEndCS.w;
+
+    float3 rayDirCS = rayEndCS.xyz - rayStartCS.xyz;
+
+    float step = 1.0 / _SampleCount;
+    float compareThreshold = GetDepthCompareThreshold(step, rayStartCS.z, rayOrthoViewSpace.z);
+
+    float occluded = 0.0;
+
+    float2 startUV = rayStartCS.xy * 0.5 + 0.5;
+    startUV.y = 1.0 - startUV.y;
+    float3 rayStart = float3(startUV, rayStartCS.z);
+    float3 rayDir = float3(rayDirCS.x * 0.5, -rayDirCS.y * 0.5, rayDirCS.z);
+
+    float t = step * dither + step;
+    int i = 0;
+    while (true)
+    {
+        if (i >= _SampleCount)
+            break;
+
+        float3 sampleAlongRay = rayStart + t * rayDir;
+        if (any(sampleAlongRay.xy < 0) || any(sampleAlongRay.xy > 1))
+            break;
+
+        float sampleDepth = SAMPLE_TEXTURE2D_LOD(_CameraDepthTexture, sampler_CameraDepthTexture,
+                                                 saturate(sampleAlongRay.xy), 0).r;
+        float depthDiff = sampleDepth - sampleAlongRay.z;
+        if (depthDiff > 0.0 && CompareDepth(depthDiff, compareThreshold) && sampleAlongRay.z > 0)
+        {
+            occluded = 1.0;
+            break;
+        }
+
+        t += step;
+        i++;
+    }
+
+    // Fade out when the ray leaves the screen.
+    float2 vignette = max(6.0 * abs(rayStartCS.xy + rayDirCS.xy * t) - 5.0, 0.0);
+    fade = occluded * saturate(1.0 - dot(vignette, vignette));
+    return occluded;
+}
+
+[numthreads(8, 8, 1)]
+void ContactShadowMap(uint2 dispatchThreadId : SV_DispatchThreadID)
+{
+    if ((float)dispatchThreadId.x > _ScreenSize.x || (float)dispatchThreadId.y > _ScreenSize.y)
+        return;
+
+    uint2 pixelCoord = dispatchThreadId;
+    float depth = LoadSceneDepth(pixelCoord);
+
+    if (depth == UNITY_RAW_FAR_CLIP_VALUE)
+    {
+        _ContactShadowTextureUAV[pixelCoord] = 0;
+        return;
+    }
+
+    const float2 invScreen = _ScreenSize.zw;
+    float2 uv = (pixelCoord + 0.5) * invScreen;
+    float3 positionWS = ComputeWorldSpacePosition(uv, depth, unity_MatrixInvVP);
+    float linearDepth = LinearEyeDepth(depth, _ZBufferParams);
+
+    if (linearDepth - _ContactShadowFadeEnd > 1.0 || linearDepth < _ContactShadowMinDistance)
+    {
+        _ContactShadowTextureUAV[pixelCoord] = 0;
+        return;
+    }
+
+    float globalFade = 0.0;
+    if (_ContactShadowLength > 0.0)
+    {
+        float3 rayDirWS = normalize(_ContactShadowLightDirection.xyz);
+        float rayLength = _ContactShadowLength * max(0.5, linearDepth * _ContactShadowDistanceScaleFactor);
+        float fade;
+        ScreenSpaceShadowRayCast(positionWS, rayDirWS, rayLength, pixelCoord, fade);
+        // Fade in and out at the configured distances.
+        fade *= saturate((linearDepth - _ContactShadowMinDistance) * rcp(_ContactShadowFadeInEnd));
+        fade *= saturate((_ContactShadowFadeEnd - linearDepth) * _ContactShadowFadeOneOverRange);
+        globalFade = fade;
+    }
+
+    _ContactShadowTextureUAV[pixelCoord] = globalFade;
+}

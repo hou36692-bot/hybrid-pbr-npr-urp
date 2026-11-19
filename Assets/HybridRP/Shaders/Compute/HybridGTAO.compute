@@ -1,0 +1,16 @@
+// Half-resolution GTAO tracing. Ported from IllusionRP (Unity Companion License, see
+// NOTICE.md); see HybridGTAOCommon.hlsl for what was kept and dropped.
+#pragma kernel GTAOMain
+
+#pragma only_renderers d3d11 playstation xboxone xboxseries vulkan metal switch
+
+#define PACK_AO_DEPTH 1
+#include "Assets/HybridRP/Shaders/Include/HybridGTAOCommon.hlsl"
+
+RWTexture2D<float4> _AOPackedData;
+
+[numthreads(8, 8, 1)]
+void GTAOMain(uint2 dispatchThreadId : SV_DispatchThreadID)
+{
+    _AOPackedData[dispatchThreadId] = GTAO(dispatchThreadId);
+}

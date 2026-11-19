@@ -1,0 +1,173 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-1621958209858268315
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5bebfdc5ce08ce34a9de4ec4989e27a1, type: 3}
+  m_Name: HybridSSR
+  m_EditorClassIdentifier: 
+  active: 1
+  enable:
+    m_OverrideState: 1
+    m_Value: 0
+  stepCount:
+    m_OverrideState: 1
+    m_Value: 48
+  maxDistance:
+    m_OverrideState: 1
+    m_Value: 30
+  thickness:
+    m_OverrideState: 1
+    m_Value: 0.5
+  intensity:
+    m_OverrideState: 1
+    m_Value: 1
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d7fd9488000d3734a9e00ee676215985, type: 3}
+  m_Name: HybridRP_Stage2
+  m_EditorClassIdentifier: 
+  components:
+  - {fileID: 8216586821568229934}
+  - {fileID: 2927500042881573582}
+  - {fileID: 2923107312263164268}
+  - {fileID: -1621958209858268315}
+--- !u!114 &2923107312263164268
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f5fd39b2593e704c8ba35a6079bc0d6, type: 3}
+  m_Name: HybridVolumetricFog
+  m_EditorClassIdentifier: 
+  active: 1
+  enable:
+    m_OverrideState: 1
+    m_Value: 1
+  color:
+    m_OverrideState: 1
+    m_Value: {r: 0.7, g: 0.76, b: 0.84, a: 1}
+  density:
+    m_OverrideState: 1
+    m_Value: 0.005
+  heightFalloff:
+    m_OverrideState: 1
+    m_Value: 60
+  baseHeight:
+    m_OverrideState: 1
+    m_Value: 8
+  maxDistance:
+    m_OverrideState: 1
+    m_Value: 400
+  sampleCount:
+    m_OverrideState: 1
+    m_Value: 20
+  anisotropy:
+    m_OverrideState: 1
+    m_Value: 0.55
+  lightScattering:
+    m_OverrideState: 1
+    m_Value: 1.2
+  ambientScattering:
+    m_OverrideState: 1
+    m_Value: 0.08
+--- !u!114 &2927500042881573582
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d22a05cccacf37f44a5a4903e2b08936, type: 3}
+  m_Name: HybridContactShadows
+  m_EditorClassIdentifier: 
+  active: 1
+  enable:
+    m_OverrideState: 1
+    m_Value: 1
+  length:
+    m_OverrideState: 1
+    m_Value: 0.4
+  distanceScaleFactor:
+    m_OverrideState: 1
+    m_Value: 0.5
+  maxDistance:
+    m_OverrideState: 1
+    m_Value: 50
+  minDistance:
+    m_OverrideState: 1
+    m_Value: 0
+  fadeDistance:
+    m_OverrideState: 1
+    m_Value: 5
+  fadeInDistance:
+    m_OverrideState: 1
+    m_Value: 0
+  rayBias:
+    m_OverrideState: 1
+    m_Value: 0.2
+  thicknessScale:
+    m_OverrideState: 1
+    m_Value: 0.25
+  sampleCount:
+    m_OverrideState: 1
+    m_Value: 12
+--- !u!114 &8216586821568229934
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4b2e2a3b530d82541b06fae5f51bf111, type: 3}
+  m_Name: HybridGTAO
+  m_EditorClassIdentifier: 
+  active: 1
+  enable:
+    m_OverrideState: 1
+    m_Value: 1
+  intensity:
+    m_OverrideState: 1
+    m_Value: 1.25
+  directLightingStrength:
+    m_OverrideState: 1
+    m_Value: 0.25
+  radius:
+    m_OverrideState: 1
+    m_Value: 2
+  thickness:
+    m_OverrideState: 1
+    m_Value: 0.5
+  stepCount:
+    m_OverrideState: 1
+    m_Value: 8
+  directionCount:
+    m_OverrideState: 1
+    m_Value: 3
+  maximumRadiusInPixels:
+    m_OverrideState: 1
+    m_Value: 40
+  blurSharpness:
+    m_OverrideState: 1
+    m_Value: 0.1

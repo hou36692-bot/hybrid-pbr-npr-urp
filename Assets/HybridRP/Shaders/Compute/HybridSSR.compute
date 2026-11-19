@@ -1,0 +1,105 @@
+// Screen-space reflections for the reflective mask layer (Stage 2, S2-6, our own implementation).
+// A full-resolution ray march against the camera depth, evaluated only on pixels where the mask
+// (water and other tagged reflectors) is set. Misses stay black and the composite adds nothing,
+// so the material keeps its reflection-probe response.
+#pragma kernel SSR
+
+#pragma only_renderers d3d11 playstation xboxone xboxseries vulkan metal switch
+
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareNormalsTexture.hlsl"
+
+TEXTURE2D_X(_SSRColorSource);
+SAMPLER(sampler_SSRColorSource);
+TEXTURE2D_X_FLOAT(_SSRMask);
+RWTexture2D<float4> _SSRTexture;
+
+float4 _SSRParams0; // x max distance, y thickness, z step count, w intensity (unused here)
+float4 _SSRParams1; // x screen width, y screen height, zw unused
+
+[numthreads(8, 8, 1)]
+void SSR(uint2 dispatchThreadId : SV_DispatchThreadID)
+{
+    int2 pixel = (int2)dispatchThreadId;
+    if (pixel.x >= (int)_SSRParams1.x || pixel.y >= (int)_SSRParams1.y)
+        return;
+
+    if (LOAD_TEXTURE2D_X(_SSRMask, pixel).r < 0.5)
+    {
+        _SSRTexture[pixel] = 0;
+        return;
+    }
+
+    float rawDepth = LoadSceneDepth(pixel);
+    if (rawDepth == UNITY_RAW_FAR_CLIP_VALUE)
+    {
+        _SSRTexture[pixel] = 0;
+        return;
+    }
+
+    float2 uv = (pixel + 0.5) * _ScreenSize.zw;
+    float3 positionWS = ComputeWorldSpacePosition(uv, rawDepth, unity_MatrixInvVP);
+    float3 normalWS = normalize(LoadSceneNormals(pixel));
+    float3 viewDir = normalize(positionWS - GetCameraPositionWS());
+    float3 reflectDir = reflect(viewDir, normalWS);
+
+    // Schlick weight for a dielectric F0: head-on reflections are weak and grazing ones strong.
+    float ndv = saturate(dot(-viewDir, normalWS));
+    float fresnel = 0.25 + 0.75 * pow(1.0 - ndv, 5.0);
+
+    // Start slightly above the surface to avoid self-intersection at grazing angles.
+    float3 originWS = positionWS + normalWS * 0.02;
+    int steps = max(4, (int)_SSRParams0.z);
+    float maxDistance = _SSRParams0.x;
+    float thickness = _SSRParams0.y;
+
+    float3 hitColor = 0;
+    float hit = 0;
+    float2 hitUV = uv;
+    float previousT = 0;
+
+    [loop]
+    for (int i = 0; i < steps; i++)
+    {
+        // Quadratic distribution: dense steps near the surface catch contact reflections and
+        // grow toward maxDistance, where a coarser step is acceptable.
+        float t = maxDistance * pow((i + 1.0) / steps, 2.0);
+        float stepSpan = t - previousT;
+        float3 sampleWS = originWS + reflectDir * t;
+        float4 sampleCS = TransformWorldToHClip(sampleWS);
+        if (sampleCS.w <= 0)
+            break;
+
+        float2 sampleUV = sampleCS.xy / sampleCS.w * 0.5 + 0.5;
+        // One texel margin: a ray leaving the screen cannot be trusted.
+        if (any(sampleUV < _ScreenSize.zw) || any(sampleUV > 1 - _ScreenSize.zw))
+            break;
+
+        int2 samplePixel = (int2)(sampleUV * _ScreenSize.xy);
+        float sceneRawDepth = LoadSceneDepth(samplePixel);
+        float sceneLinear = LinearEyeDepth(sceneRawDepth, _ZBufferParams);
+        float3 sampleVS = mul(UNITY_MATRIX_V, float4(sampleWS, 1)).xyz;
+        float rayLinear = -sampleVS.z;
+        // A planar march can step over a thin surface; accept up to half the local step.
+        float accept = max(thickness, stepSpan * 0.5);
+
+        // The ray is behind the sampled surface and close enough to be that surface.
+        if (rayLinear > sceneLinear && rayLinear - sceneLinear < accept)
+        {
+            // Compute has no implicit derivatives; SampleLevel with LOD 0.
+            hitColor = SAMPLE_TEXTURE2D_X_LOD(_SSRColorSource, sampler_SSRColorSource, sampleUV, 0).rgb;
+            hitUV = sampleUV;
+            hit = 1;
+            break;
+        }
+        previousT = t;
+    }
+
+    // Fade from the hit position so a reflection found at the screen edge does not pop.
+    float2 edge = saturate(min(hitUV, 1 - hitUV) * 12.0);
+    float fade = edge.x * edge.y;
+
+    _SSRTexture[pixel] = float4(hitColor, hit * fade * fresnel);
+}
