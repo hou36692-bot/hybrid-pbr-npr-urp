@@ -19,8 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-The MIT License above covers the original code, shaders, tools and documentation
-in this repository. It does not cover the ported and adapted code listed in
-NOTICE.md, which keeps its original licenses (texts in LICENSES/), or the
-third-party characters, scenes and imagery shown in the screenshots.
