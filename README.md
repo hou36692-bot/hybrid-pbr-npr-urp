@@ -2,7 +2,7 @@
 
 Unity 6 (URP 17) 里的一条混合渲染管线：场景用标准 PBR，角色用自研的 NPR 着色，两边共享同一套光照。
 
-![Hero：PBR 庭院里的 NPR 角色](docs/images/hero.jpg)
+![特写：PBR 庭院里的 NPR 角色](docs/images/closeup.jpg)
 
 > 个人技术作品集项目。角色是《明日方舟：终末地》庄方宜的同人模型（借物：鹰角网络），场景是第三方资产包 Asian Dynasty Environment（BefourStudios）。仓库只含原创的着色器、渲染代码、工具和配置，以及注明来源的移植代码，**不含模型、贴图、场景文件或任何第三方资产**。画面的权利归原权利人，详见 [NOTICE](NOTICE.md)。
 
@@ -20,12 +20,12 @@ A hybrid renderer on Unity 6 / URP 17: the environment is standard PBR (URP Lit,
 
 <table>
 <tr>
-<td><img src="docs/images/closeup.jpg" alt="CloseUp"></td>
-<td><img src="docs/images/medium_dappled.jpg" alt="树影落在角色身上"></td>
+<td width="50%"><img src="docs/images/hero.jpg" alt="Hero：PBR 庭院里的 NPR 角色"></td>
+<td width="50%"><img src="docs/images/medium_dappled.jpg" alt="树影落在角色身上"></td>
 </tr>
 <tr>
-<td><img src="docs/images/lowhero.jpg" alt="LowHero"></td>
-<td><img src="docs/images/profile.jpg" alt="Profile"></td>
+<td width="50%"><img src="docs/images/lowhero.jpg" alt="LowHero"></td>
+<td width="50%"><img src="docs/images/profile.jpg" alt="Profile"></td>
 </tr>
 </table>
 
